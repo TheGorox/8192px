@@ -21,7 +21,7 @@ async function start() {
 	await canvas.load(fs.existsSync(IMG_PATH) ? IMG_PATH : null);
 
 	setInterval(function(){
-		let { // хуй
+		let { // хуй 222
 			heapTotal,
 			heapUsed
 		} = process.memoryUsage();
