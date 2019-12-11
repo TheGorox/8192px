@@ -99,31 +99,41 @@ class Canvas {
         let whiteColorId = getColorId([255, 255, 255]);
         if (whiteColorId < 0) whiteColorId = 0;
 
-        const png = new PNG({
-            width: this.width + pixels,
-            height: this.height + pixels,
-            filterType: -1,
-            bgColor: [255, 255, 255, 255]
-        });
+        let newWidth = this.width + pixels;
+        let newHeight = this.height + pixels;
 
-        for (let y = pixels / 2; y < png.height - pixels / 2; y++) {
-            for (let x = pixels / 2; x < png.width - pixels / 2; x++) {
-                const idx = (png.width * y + x) << 2;
-                const oldIdx = ((y - (count / 2)) * bitmap.width + (x - (count / 2))) * 4;
-                let color = colors[this.getPixel(x, y)];
-
-                png.data[idx] = color[0];
-                png.data[idx + 1] = color[1];
-                png.data[idx + 2] = color[2];
-                png.data[idx + 3] = 255;
+        let data = [];
+        for (let y = 0; y < newHeight; y++) {
+            for (let x = 0; x < newWidth; x++) {
+                data.push(whiteColorId);
             }
         }
+
+        for (let y = 0; y < this.height; y++) {
+            for (let x = 0; x < this.width; x++) {
+                let _x = (x + pixels/2) | 0;
+                let _y = (y + pixels/2) | 0;
+
+                const idx = newWidth * _y + _x;
+                const oldIdx = x + this.width * y;
+
+                data[idx] = this.data[oldIdx]
+            }
+        }
+
+        this.width = newWidth;
+        this.height = newHeight;
+        this.data = data;
+    }
+
+    toBuffer(){
+        let data = [];
+        for(let i = 0; i < this.data.length; i++){
+            data.push(colors[this.data[i]] || colors[0]);
+        }
+
+        return new Uint8Array(data)
     }
 }
-
-var can = new Canvas()
-can.load().then(() => {
-    can.save('test.png');
-});
 
 module.exports = Canvas

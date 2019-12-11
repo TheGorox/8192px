@@ -25,7 +25,7 @@ function eq(rgb1, rgb2) {
 
 function getColorId(clr) {
     let color_id = -1;
-    for (let c = 2; c < colors.length; c++) {
+    for (let c = 0; c < colors.length; c++) {
         let rgb = colors[c];
         if (eq(clr, rgb)) {
             color_id = c;
