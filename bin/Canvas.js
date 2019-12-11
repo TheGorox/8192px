@@ -6,7 +6,7 @@ const {
 } = require('./utils');
 
 class Canvas {
-    static START_SIZE = 2;
+    static START_SIZE = 1400;
 
     constructor() {
         this.data = [];
@@ -127,13 +127,7 @@ class Canvas {
     }
 
     toBuffer(){
-        let data = [];
-        for(let i = 0; i < this.data.length; i++){
-            (colors[this.data[i]] || colors[0]).forEach(el => data.push(el));
-            data.push(255);
-        }
-
-        return new Uint8Array(data)
+        return this.data // как тебе такое, Илон Маск?
     }
 }
 

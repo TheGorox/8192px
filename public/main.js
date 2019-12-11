@@ -13,40 +13,59 @@ window.onresize = function (event) {
 
 var content = document.querySelector('main');
 
-var colors = {
-	white: [255, 255, 255, 255],
-	lightgray: [211, 211, 211, 255],
-	darkgray: [169, 169, 169, 255],
-	black: [0, 0, 0, 255],
-	pink: [255, 192, 203, 255],
-	red: [255, 0, 0, 255],
-	gold: [255, 215, 0, 255],
-	brown: [165, 42, 42, 255],
-	yellow: [255, 255, 0, 255],
-	lightgreen: [144, 238, 144, 255],
-	green: [0, 128, 0, 255],
-	aqua: [0, 255, 255, 255],
-	lightblue: [173, 216, 230, 255],
-	blue: [0, 0, 255, 255],
-	hotpink: [255, 105, 180, 255],
-	purple: [128, 0, 128, 255],
-	darkorange: [255, 140, 0, 255],
-	crimson: [220, 20, 60, 255],
-};
+const OPCODES = {
+	PIXEL: 0,
+	BOARD: 1,
+	COOLDOWN: 2
+}
 
-var names = Object.keys(colors);
+var colors = [
+	[0, 0, 0],
+	[34, 32, 52],
+	[69, 40, 60],
+	[102, 57, 49],
+	[143, 86, 59],
+	[223, 113, 38],
+	[217, 160, 102],
+	[238, 195, 154],
+	[251, 242, 54],
+	[153, 229, 80],
+	[106, 190, 48],
+	[55, 148, 110],
+	[75, 105, 47],
+	[82, 75, 36],
+	[50, 60, 57],
+	[63, 63, 116],
+	[48, 96, 130],
+	[91, 110, 225],
+	[99, 155, 255],
+	[95, 205, 228],
+	[203, 219, 252],
+	[255, 255, 255],
+	[155, 173, 183],
+	[132, 126, 135],
+	[105, 106, 106],
+	[89, 86, 82],
+	[118, 66, 138],
+	[172, 50, 50],
+	[217, 87, 99],
+	[215, 123, 186],
+	[143, 151, 74],
+	[138, 111, 48]
+];
+
 var palette = document.createElement('section');
 
 palette.id = 'palette';
 palette.className = 'palette';
-names.forEach(function (name) {
+colors.forEach((color, index) => {
 	var button = document.createElement('button');
-	button.id = name;
-	button.className = 'swatch ' + name;
-	button.style.backgroundColor = name;
+	button.className = 'swatch';
+	button.dataset.index = index;
+	button.style.backgroundColor = `rgb(${color.join(',')})`;
 	button.onclick = function (event) {
-		palette.style.backgroundColor = name;
-		viewport.color = colors[name];
+		//palette.style.backgroundColor = name;
+		viewport.color = index;
 	};
 
 	palette.appendChild(button);
@@ -66,7 +85,7 @@ viewport.y = 0;
 
 viewport.scale = 5;
 
-viewport.color = colors.black;
+viewport.color = 0;
 viewport.tileX = 0;
 viewport.tileY = 0;
 
@@ -232,20 +251,16 @@ window.onmousedown = function (ev) {
 						return event.preventDefault();
 					}
 
-					var data = new Uint8Array(12);
-					var view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+					const dv = new DataView(new ArrayBuffer(6));
 
-					view.setUint16(0, x);
-					view.setUint16(2, y);
-					view.setUint16(4, 1);
-					view.setUint16(6, 1);
+					dv.setUint8(0, OPCODES.PIXEL);
 
-					view.setUint8(8, viewport.color[0]);
-					view.setUint8(9, viewport.color[1]);
-					view.setUint8(10, viewport.color[2]);
-					view.setUint8(11, viewport.color[3]);
+					dv.setUint16(1, x);
+					dv.setUint16(3, y);
 
-					socket.send(data);
+					dv.setUint8(5, viewport.color);
+
+					socket.send(dv.buffer);
 
 					viewport.tileX = null;
 					viewport.tileY = null;
@@ -288,7 +303,7 @@ viewport.render = function render() {
 	context.imageSmoothingEnabled = false;
 	context.drawImage(canvas, 0, 0);
 
-	context.fillStyle = 'rgba(' + viewport.color.join(',') + ')';
+	context.fillStyle = 'rgb(' + colors[viewport.color].join(',') + ')';
 	context.fillRect(viewport.tileX, viewport.tileY, 1, 1);
 
 	context.restore();
@@ -357,67 +372,100 @@ socket.onopen = function (event) {
 };
 
 socket.onmessage = function (event) {
+	let message = event.data;
+	if (typeof message === 'string') {
+		// ... string handle
+	} else {
+		let dv = new DataView(message);
+		switch (dv.getUint8(0)) { // OPCODE
+			case OPCODES.BOARD: {
+				var canvas = viewport.canvas;
+				var context = canvas.getContext('2d');
+
+				var x = dv.getUint16(1);
+				var y = dv.getUint16(3);
+
+				var width = dv.getUint16(5);
+				var height = dv.getUint16(7);
+
+				if ((width != 1 && width != canvas.width) || (height != 1 && height != canvas.height)) {
+					var bitmap = context.getImageData(0, 0, canvas.width, canvas.height);
+
+					canvas.width = width;
+					canvas.height = height;
+
+					context.putImageData(bitmap, 0, 0);
+				}
+
+				var bitmap = context.getImageData(x, y, width, height);
+				let imageData = [];
+				if(/Chrome/i.test(navigator.userAgent)){
+					new Uint8Array(dv.buffer.slice(9)).forEach(colorId => {
+						imageData.concat([...colors[colorId], 255])
+					})
+				}else{
+					new Uint8Array(dv.buffer.slice(9)).forEach(colorId => {
+						imageData.push.apply(imageData, [...colors[colorId], 255])
+					})
+				}
+				
+				bitmap.data.set(imageData);
+
+				context.putImageData(bitmap, x, y);
+
+				requestAnimationFrame(function () {
+					viewport.render();
+				});
+
+				break
+			}
+			case OPCODES.PIXEL: {
+				let x = dv.getUint16(1);
+				let y = dv.getUint16(3);
+				let colorId = dv.getUint8(5);
+
+				let context = viewport.canvas.getContext('2d');
+				context.fillStyle = `rgb(${colors[colorId].join(',')})`;
+				context.fillRect(x, y, 1, 1);
+
+				break
+			}
+			case OPCODES.COOLDOWN: {
+				var hint = document.createElement('p');
+				hint.id = 'hint';
+				hint.className = 'hint';
+				content.appendChild(hint);
+
+				viewport.timeout = setTimeout(function tick(wait) {
+					var now = Date.now();
+					var time = wait - now;
+
+					hint.innerHTML = 'Wait... (' + Math.ceil(time / 1000) + ')';
+
+					if (viewport.style.cursor == '') {
+						viewport.style.cursor = 'wait';
+					}
+
+					if (time > 0) {
+						return viewport.timeout = setTimeout(tick, 1000, wait);
+					}
+
+					content.removeChild(hint);
+					viewport.timeout = null;
+
+					if (viewport.style.cursor == 'wait') {
+						viewport.style.cursor = '';
+					}
+				}, 0, dv.getFloat64(1));
+			}
+		}
+	}
 	var data = new Uint8Array(event.data);
-	var view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+	var dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
 	if (data.byteLength == 8) {
-		data = new Float64Array(event.data);
-		view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
-		var hint = document.createElement('p');
-		hint.id = 'hint';
-		hint.className = 'hint';
-		content.appendChild(hint);
-
-		viewport.timeout = setTimeout(function tick(wait) {
-			var now = Date.now();
-			var time = wait - now;
-
-			hint.innerHTML = 'Wait... (' + Math.ceil(time / 1000) + ')';
-
-			if (viewport.style.cursor == '') {
-				viewport.style.cursor = 'wait';
-			}
-
-			if (time > 0) {
-				return viewport.timeout = setTimeout(tick, 1000, wait);
-			}
-
-			content.removeChild(hint);
-			viewport.timeout = null;
-
-			if (viewport.style.cursor == 'wait') {
-				viewport.style.cursor = '';
-			}
-		}, 0, view.getFloat64(0, true));
-	} else {
-		var canvas = viewport.canvas;
-		var context = canvas.getContext('2d');
-
-		var x = view.getUint16(0);
-		var y = view.getUint16(2);
-
-		var width = view.getUint16(4);
-		var height = view.getUint16(6);
-
-		if ((width != 1 && width != canvas.width) || (height != 1 && height != canvas.height)) {
-			var bitmap = context.getImageData(0, 0, canvas.width, canvas.height);
-
-			canvas.width = width;
-			canvas.height = height;
-
-			context.putImageData(bitmap, 0, 0);
-		}
-
-		var bitmap = context.getImageData(x, y, width, height);
-		bitmap.data.set(data.slice(8));
-
-		context.putImageData(bitmap, x, y);
-
-		requestAnimationFrame(function () {
-			viewport.render();
-		});
-	}
+	} else {}
 };
 
 socket.onclose = function () {
