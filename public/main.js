@@ -197,7 +197,7 @@ window.onmousedown = function(event) {
 
   window.onwheel = function wheel(event) {
     var delta = (viewport.scale <= 5 ? 1 : 5) * Math.sign(event.deltaY);
-    viewport.scale = Math.min(Math.max(viewport.scale + delta, 1), 100);
+    viewport.scale = Math.min(Math.max(viewport.scale - delta, 1), 100);
     requestAnimationFrame(function() {
       viewport.render();
     });
