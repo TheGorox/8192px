@@ -7,7 +7,7 @@ var path = require('path');
 var url = require('url');
 var ws = require('ws');
 
-const IMG_PATH = 'bin/canvas.png';
+const IMG_PATH = 'bin/canvas.png'; 
 
 const Canvas = require('./Canvas');
 const {
