@@ -6,7 +6,7 @@ const {
 } = require('./utils');
 
 class Canvas {
-    static START_SIZE = 1400;
+    static START_SIZE = 2;
 
     constructor() {
         this.data = [];

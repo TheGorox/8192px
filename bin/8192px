@@ -200,9 +200,9 @@ async function start() {
 		}
 
 		canvas.save(IMG_PATH).then(function () {
-			setTimeout(callback, 10000, now, cooldown, delay);
+			setTimeout(callback, 20000, now, cooldown, delay);
 		})
-	}, 0, Date.now(), 10000, 10000);
+	}, 0, Date.now(), 20000, 20000);
 
 	server.listen(process.env['PORT'] || 8192);
 }

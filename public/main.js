@@ -401,7 +401,7 @@ socket.onmessage = function (event) {
 				let imageData = [];
 				if(/Chrome/i.test(navigator.userAgent)){
 					new Uint8Array(dv.buffer.slice(9)).forEach(colorId => {
-						imageData.concat([...colors[colorId], 255])
+						imageData = imageData.concat([...colors[colorId], 255])
 					})
 				}else{
 					new Uint8Array(dv.buffer.slice(9)).forEach(colorId => {
@@ -409,6 +409,7 @@ socket.onmessage = function (event) {
 					})
 				}
 				
+				console.log(imageData)
 				bitmap.data.set(imageData);
 
 				context.putImageData(bitmap, x, y);
