@@ -129,7 +129,8 @@ class Canvas {
     toBuffer(){
         let data = [];
         for(let i = 0; i < this.data.length; i++){
-            data.push(colors[this.data[i]] || colors[0]);
+            (colors[this.data[i]] || colors[0]).forEach(el => data.push(el));
+            data.push(255);
         }
 
         return new Uint8Array(data)
