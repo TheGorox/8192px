@@ -7,7 +7,7 @@ var path = require('path');
 var url = require('url');
 var ws = require('ws');
 
-const IMG_PATH = 'canvas.png';
+const IMG_PATH = 'bin/canvas.png'; 
 
 const Canvas = require('./Canvas');
 const {
@@ -17,8 +17,8 @@ const {
 
 // function is just for awaits
 async function start() {
-	let canvas = new Canvas(fs.existsSync(IMG_PATH) ? IMG_PATH : null);
-	await canvas.load();
+	let canvas = new Canvas();
+	await canvas.load(fs.existsSync(IMG_PATH) ? IMG_PATH : null);
 
 	var server = http.createServer();
 	server.on('request', function (request, response) {
@@ -28,7 +28,7 @@ async function start() {
 			pathname = '/index.html';
 		}
 		
-		var filepath = path.join('../public', pathname);
+		var filepath = path.join('public', pathname);
 		fs.stat(filepath, function (error, stat) {
 			if (error) {
 				response.writeHead(404, {
@@ -152,7 +152,7 @@ async function start() {
 		if (cooldown <= 0) {
 			cooldown = cooldown + delay;
 			
-			var count = 2;
+			var count = 8;
 			canvas.expand(count);
 			let pixelData = canvas.toBuffer();
 			
