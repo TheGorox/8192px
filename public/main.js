@@ -1,37 +1,37 @@
 window.createSocket = function createSocket(url) {
-  return new WebSocket(url);
+	return new WebSocket(url);
 };
 
-window.onresize = function(event) {
-  viewport.width = window.innerWidth;
-  viewport.height = window.innerHeight;
+window.onresize = function (event) {
+	viewport.width = window.innerWidth;
+	viewport.height = window.innerHeight;
 
-  requestAnimationFrame(function() {
-    viewport.render();
-  });
+	requestAnimationFrame(function () {
+		viewport.render();
+	});
 };
 
 var content = document.querySelector('main');
 
 var colors = {
-  white: [255, 255, 255, 255],
-  lightgray: [211, 211, 211, 255],
-  darkgray: [169, 169, 169, 255],
-  black: [0, 0, 0, 255],
-  pink: [255, 192, 203, 255],
-  red: [255, 0, 0, 255],
-  gold: [255, 215, 0, 255],
-  brown: [165, 42, 42, 255],
-  yellow: [255, 255, 0, 255],
-  lightgreen: [144, 238, 144, 255],
-  green: [0, 128, 0, 255],
-  aqua: [0, 255, 255, 255],
-  lightblue: [173, 216, 230, 255],
-  blue: [0, 0, 255, 255],
-  hotpink: [255, 105, 180, 255],
-  purple: [128, 0, 128, 255],
-  darkorange: [255, 140, 0, 255],
-  crimson: [220, 20, 60, 255],
+	white: [255, 255, 255, 255],
+	lightgray: [211, 211, 211, 255],
+	darkgray: [169, 169, 169, 255],
+	black: [0, 0, 0, 255],
+	pink: [255, 192, 203, 255],
+	red: [255, 0, 0, 255],
+	gold: [255, 215, 0, 255],
+	brown: [165, 42, 42, 255],
+	yellow: [255, 255, 0, 255],
+	lightgreen: [144, 238, 144, 255],
+	green: [0, 128, 0, 255],
+	aqua: [0, 255, 255, 255],
+	lightblue: [173, 216, 230, 255],
+	blue: [0, 0, 255, 255],
+	hotpink: [255, 105, 180, 255],
+	purple: [128, 0, 128, 255],
+	darkorange: [255, 140, 0, 255],
+	crimson: [220, 20, 60, 255],
 };
 
 var names = Object.keys(colors);
@@ -39,17 +39,17 @@ var palette = document.createElement('section');
 
 palette.id = 'palette';
 palette.className = 'palette';
-names.forEach(function(name) {
-  var button = document.createElement('button');
-  button.id = name;
-  button.className = 'swatch ' + name;
-  button.style.backgroundColor = name;
-  button.onclick = function(event) {
-    palette.style.backgroundColor = name;
-    viewport.color = colors[name];
-  };
+names.forEach(function (name) {
+	var button = document.createElement('button');
+	button.id = name;
+	button.className = 'swatch ' + name;
+	button.style.backgroundColor = name;
+	button.onclick = function (event) {
+		palette.style.backgroundColor = name;
+		viewport.color = colors[name];
+	};
 
-  palette.appendChild(button);
+	palette.appendChild(button);
 });
 
 content.appendChild(palette);
@@ -74,361 +74,369 @@ viewport.canvas = document.createElement('canvas');
 viewport.canvas.width = 2;
 viewport.canvas.height = 2;
 
-window.ondblclick = function dblclick(event) {
-  if (event.button == 0) {
-    if (event.shiftKey || event.ctrlKey || event.altKey) {
-      return event.preventDefault();
-    }
+window.ontouchstart = function (event) {
+	var screenX, screenY;
+	var distance;
 
-    if (viewport.timeout == null) {
-      var canvas = viewport.canvas;
-      var x = Math.floor(
-        (event.offsetX - viewport.width / 2) / viewport.scale + canvas.width / 2 - viewport.x
-      );
+	window.ontouchstart = function touchstart(event) {
+		if (event.touches.length == 1) {
+			screenX = event.touches[0].screenX;
+			screenY = event.touches[0].screenY;
+		}
 
-      var y = Math.floor(
-        (event.offsetY - viewport.height / 2) / viewport.scale + canvas.height / 2 - viewport.y
-      );
+		if (event.touches.length == 2) {
+			var x = event.touches[0].screenX - event.touches[1].screenX;
+			var y = event.touches[0].screenY - event.touches[1].screenY;
 
-      if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
-        return event.preventDefault();
-      }
+			distance = Math.sqrt(x * x + y * y);
+		}
+	};
 
-      var data = new Uint8Array(12);
-      var view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+	window.ontouchmove = function touchmove(event) {
+		if (event.touches.length == 1) {
+			var touch = event.touches[0];
+			viewport.x += (event.touches[0].screenX - screenX) / viewport.scale;
+			viewport.y += (event.touches[0].screenY - screenY) / viewport.scale;
 
-      view.setUint16(0, x);
-      view.setUint16(2, y);
-      view.setUint16(4, 1);
-      view.setUint16(6, 1);
+			screenX = event.touches[0].screenX;
+			screenY = event.touches[0].screenY;
+		} else if (event.touches.length == 2) {
+			var x = event.touches[0].screenX - event.touches[1].screenX;
+			var y = event.touches[0].screenY - event.touches[1].screenY;
 
-      view.setUint8(8, viewport.color[0]);
-      view.setUint8(9, viewport.color[1]);
-      view.setUint8(10, viewport.color[2]);
-      view.setUint8(11, viewport.color[3]);
+			var value = Math.sqrt(x * x + y * y);
+			var delta = (value - distance) * 0.25;
 
-      socket.send(data);
+			viewport.scale = Math.min(Math.max(viewport.scale + delta, 1), 100);
+			distance = value;
+		}
 
-      viewport.tileX = null;
-      viewport.tileY = null;
-    }
+		requestAnimationFrame(function () {
+			viewport.render();
+		});
 
-    requestAnimationFrame(function() {
-      viewport.render();
-    });
+		event.preventDefault();
+	};
 
-    return event.preventDefault();
-  }
-};
+	window.ontouchend = function touchend(event) {
+		screenX = event.touches[0].screenX;
+		screenY = event.touches[0].screenY;
+	};
 
-window.ontouchstart = function(event) {
-  var screenX, screenY;
-  var distance;
-
-  window.ontouchstart = function touchstart(event) {
-    if (event.touches.length == 1) {
-      screenX = event.touches[0].screenX;
-      screenY = event.touches[0].screenY;
-    }
-
-    if (event.touches.length == 2) {
-      var x = event.touches[0].screenX - event.touches[1].screenX;
-      var y = event.touches[0].screenY - event.touches[1].screenY;
-
-      distance = Math.sqrt(x * x + y * y);
-    }
-  };
-
-  window.ontouchmove = function touchmove(event) {
-    if (event.touches.length == 1) {
-      var touch = event.touches[0];
-      viewport.x += (event.touches[0].screenX - screenX) / viewport.scale;
-      viewport.y += (event.touches[0].screenY - screenY) / viewport.scale;
-
-      screenX = event.touches[0].screenX;
-      screenY = event.touches[0].screenY;
-    } else if (event.touches.length == 2) {
-      var x = event.touches[0].screenX - event.touches[1].screenX;
-      var y = event.touches[0].screenY - event.touches[1].screenY;
-
-      var value = Math.sqrt(x * x + y * y);
-      var delta = (value - distance) * 0.25;
-
-      viewport.scale = Math.min(Math.max(viewport.scale + delta, 1), 100);
-      distance = value;
-    }
-
-    requestAnimationFrame(function() {
-      viewport.render();
-    });
-
-    event.preventDefault();
-  };
-
-  window.ontouchend = function touchend(event) {
-    screenX = event.touches[0].screenX;
-    screenY = event.touches[0].screenY;
-  };
-
-  return window.ontouchstart(event);
+	return window.ontouchstart(event);
 
 };
 
-window.onmousedown = function(event) {
-  var buttons = {};
-  var screenX, screenY;
+window.onmousedown = function (ev) {
+	var buttons = {};
+	var screenX, screenY;
+	let startX = ev.clientX;
+	let startY = ev.clientY;
 
-  window.onclick = function click(event) {
-    if (event.button == 0) {
-      var delta = viewport.scale <= 5 ? 1 : 5;
-      if (event.altKey || event.ctrlKey) {
-        viewport.scale = Math.max(1, viewport.scale - delta);
-      } else if (event.shiftKey) {
-        viewport.scale = Math.min(100, viewport.scale + delta);
-      }
+	window.onclick = function click(event) {
+		if (event.button == 0) {
+			var delta = viewport.scale <= 5 ? 1 : 5;
+			if (event.altKey || event.ctrlKey) {
+				viewport.scale = Math.max(1, viewport.scale - delta);
+			} else if (event.shiftKey) {
+				viewport.scale = Math.min(100, viewport.scale + delta);
+			}
 
-      requestAnimationFrame(function() {
-        viewport.render();
-      });
+			requestAnimationFrame(function () {
+				viewport.render();
+			});
 
-      return event.preventDefault();
-    }
-  };
+			return event.preventDefault();
+		}
+	};
 
-  window.onwheel = function wheel(event) {
-    var delta = (viewport.scale <= 5 ? 1 : 5) * Math.sign(event.deltaY);
-    viewport.scale = Math.min(Math.max(viewport.scale + delta, 1), 100);
-    requestAnimationFrame(function() {
-      viewport.render();
-    });
-  };
+	window.onwheel = function wheel(event) {
+		var delta = (viewport.scale <= 5 ? 1 : 5) * Math.sign(event.deltaY);
+		viewport.scale = Math.min(Math.max(viewport.scale - delta, 1), 100);
+		requestAnimationFrame(function () {
+			viewport.render();
+		});
+	};
 
-  window.onmousedown = function(event) {
-    buttons[event.button] = true;
+	window.onmousedown = function (event) {
+		buttons[event.button] = true;
 
-    screenX = event.screenX;
-    screenY = event.screenY;
+		screenX = event.screenX;
+		screenY = event.screenY;
 
-    event.preventDefault();
-  };
+		startX = event.clientX;
+		startY = event.clientY;
 
-  window.onmousemove = function mousemove(event) {
-    if (viewport.style.cursor == 'move') {
-      viewport.style.cursor = '';
-    }
+		event.preventDefault();
+	};
 
-    if (buttons[0]) {
-      viewport.style.cursor = 'move';
-      viewport.x += (event.screenX - (screenX || event.screenX)) / viewport.scale;
-      viewport.y += (event.screenY - (screenY || event.screenY)) / viewport.scale;
-    }
+	window.onmousemove = function mousemove(event) {
+		if (viewport.style.cursor == 'move') {
+			viewport.style.cursor = '';
+		}
 
-    var canvas = viewport.canvas;
-    viewport.tileX = Math.floor(
-      (event.offsetX - viewport.width / 2) / viewport.scale + canvas.width / 2 - viewport.x
-    );
+		if (buttons[0]) {
+			viewport.style.cursor = 'move';
+			viewport.x += (event.screenX - (screenX || event.screenX)) / viewport.scale;
+			viewport.y += (event.screenY - (screenY || event.screenY)) / viewport.scale;
+		}
 
-    viewport.tileY = Math.floor(
-      (event.offsetY - viewport.height / 2) / viewport.scale + canvas.height / 2 - viewport.y
-    );
+		var canvas = viewport.canvas;
+		viewport.tileX = Math.floor(
+			(event.offsetX - viewport.width / 2) / viewport.scale + canvas.width / 2 - viewport.x
+		);
 
-    requestAnimationFrame(function() {
-      viewport.render();
-    });
+		viewport.tileY = Math.floor(
+			(event.offsetY - viewport.height / 2) / viewport.scale + canvas.height / 2 - viewport.y
+		);
 
-    event.preventDefault();
+		requestAnimationFrame(function () {
+			viewport.render();
+		});
 
-    screenX = event.screenX;
-    screenY = event.screenY;
-  };
+		event.preventDefault();
 
-  window.onmouseup = function mouseup(event) {
-    if (event.button == 0) {
-      if (viewport.style.cursor == 'move') {
-        viewport.style.cursor = '';
-      }
-    }
+		screenX = event.screenX;
+		screenY = event.screenY;
+	};
 
-    delete buttons[event.button];
-  };
+	window.onmouseup = function mouseup(event) {
+		if (event.button == 0) {
+			if (viewport.style.cursor == 'move') {
+				viewport.style.cursor = '';
+			}
+		}
 
-  window.onmouseout = function(event) {
-    for (var key in buttons) {
-      delete buttons[key];
-    }
-  };
+		let endX = event.clientX;
+		let endY = event.clientY;
 
-  return window.onmousedown(event);
+		delete buttons[event.button];
+
+		if (Math.abs(startX - endX) < 5 && Math.abs(startY < endY) < 5) {
+			if (event.button == 0) {
+				if (event.shiftKey || event.ctrlKey || event.altKey) {
+					return event.preventDefault();
+				}
+
+				if (viewport.timeout == null) {
+					var canvas = viewport.canvas;
+					var x = Math.floor(
+						(event.offsetX - viewport.width / 2) / viewport.scale + canvas.width / 2 - viewport.x
+					);
+
+					var y = Math.floor(
+						(event.offsetY - viewport.height / 2) / viewport.scale + canvas.height / 2 - viewport.y
+					);
+
+					if (x < 0 || x > canvas.width || y < 0 || y > canvas.height) {
+						return event.preventDefault();
+					}
+
+					var data = new Uint8Array(12);
+					var view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+					view.setUint16(0, x);
+					view.setUint16(2, y);
+					view.setUint16(4, 1);
+					view.setUint16(6, 1);
+
+					view.setUint8(8, viewport.color[0]);
+					view.setUint8(9, viewport.color[1]);
+					view.setUint8(10, viewport.color[2]);
+					view.setUint8(11, viewport.color[3]);
+
+					socket.send(data);
+
+					viewport.tileX = null;
+					viewport.tileY = null;
+				}
+
+				requestAnimationFrame(function () {
+					viewport.render();
+				});
+
+				return event.preventDefault();
+			}
+		}
+	};
+
+	window.onmouseout = function (event) {
+		for (var key in buttons) {
+			delete buttons[key];
+		}
+	};
+
+	return window.onmousedown(ev);
 };
 
 viewport.render = function render() {
-  var context = viewport.getContext('2d');
+	var context = viewport.getContext('2d');
 
-  context.save();
-  context.clearRect(0, 0, viewport.width, viewport.height);
+	context.save();
+	context.clearRect(0, 0, viewport.width, viewport.height);
 
-  context.translate(viewport.width / 2, viewport.height / 2);
-  context.scale(viewport.scale, viewport.scale);
-  context.translate(viewport.x, viewport.y);
+	context.translate(viewport.width / 2, viewport.height / 2);
+	context.scale(viewport.scale, viewport.scale);
+	context.translate(viewport.x, viewport.y);
 
-  var canvas = viewport.canvas;
-  context.translate(-canvas.width / 2, -canvas.height / 2);
+	var canvas = viewport.canvas;
+	context.translate(-canvas.width / 2, -canvas.height / 2);
 
-  context.fillStyle = 'white';
-  context.fillRect(0, 0, canvas.width, canvas.height);
+	context.fillStyle = 'white';
+	context.fillRect(0, 0, canvas.width, canvas.height);
 
-  context.imageSmoothingEnabled = false;
-  context.drawImage(canvas, 0, 0);
+	context.imageSmoothingEnabled = false;
+	context.drawImage(canvas, 0, 0);
 
-  context.fillStyle = 'rgba(' + viewport.color.join(',') + ')';
-  context.fillRect(viewport.tileX, viewport.tileY, 1, 1);
+	context.fillStyle = 'rgba(' + viewport.color.join(',') + ')';
+	context.fillRect(viewport.tileX, viewport.tileY, 1, 1);
 
-  context.restore();
+	context.restore();
 };
 
-requestAnimationFrame(function() {
-  viewport.render();
+requestAnimationFrame(function () {
+	viewport.render();
 });
 
 content.appendChild(viewport);
 
 var socket = window.createSocket(
-  location.protocol.replace('http', 'ws') + '//' + location.host
+	location.protocol.replace('http', 'ws') + '//' + location.host
 );
 
 socket.binaryType = 'arraybuffer';
-socket.onopen = function(event) {
-  socket.reconnect = true;
+socket.onopen = function (event) {
+	socket.reconnect = true;
 
-  var hint = document.createElement('p');
-  hint.id = 'hint';
+	var hint = document.createElement('p');
+	hint.id = 'hint';
 
-  var hints = [
-    'The cooldown after placing a pixel can be up to 8192 seconds long.',
-    'Check out 8192px on <a href="https://reddit.com/8192px">Reddit</a>"',
-    'The canvas will expand every 8192 seconds.',
-    'Use your imagination, be creative and have fun.',
-    'Join the <a href="https://discord.gg/XdN2CHk">Discord</a> chat server',
-    'Try to work with what is already on the canvas.',
-    'The palette will colors change every now and then.',
-    '8192px is hosted with <a href="https://m.do.co/c/77e38b5a6b3e">DigitalOcean</a>, they are freaking awesome.',
-    '8192px is open source, check it out on <a href="https://github.com/8192px/8192px">GitHub</a>',
-  ];
+	var hints = [
+		'The cooldown after placing a pixel can be up to 8192 seconds long.',
+		'Check out 8192px on <a href="https://reddit.com/8192px">Reddit</a>"',
+		'The canvas will expand every 8192 seconds.',
+		'Use your imagination, be creative and have fun.',
+		'Join the <a href="https://discord.gg/XdN2CHk">Discord</a> chat server',
+		'Try to work with what is already on the canvas.',
+		'The palette will colors change every now and then.',
+		'8192px is hosted with <a href="https://m.do.co/c/77e38b5a6b3e">DigitalOcean</a>, they are freaking awesome.',
+		'8192px is open source, check it out on <a href="https://github.com/8192px/8192px">GitHub</a>',
+	];
 
-  if (/phone|pad|tablet|droid/i.test(navigator.userAgent)) {
-    hints = [
-      'Double tap to place a pixel.',
-      'Pinch to zoom in and out.',
-    ].concat(hints);
-  } else {
-    hints = [
-      'Double click to place a pixel.',
-      'Click a color swatch in the palette to switch colors.',
-      'Click while holding the shift key to zoom in.',
-      'Click and drag to move the canvas.',
-      'Click while holding the control key to zoom out.',
-    ].concat(hints);
-  }
+	if (/phone|pad|tablet|droid/i.test(navigator.userAgent)) {
+		hints = [
+			'Double tap to place a pixel.',
+			'Pinch to zoom in and out.',
+		].concat(hints);
+	} else {
+		hints = [
+			'Double click to place a pixel.',
+			'Click a color swatch in the palette to switch colors.',
+			'Click while holding the shift key to zoom in.',
+			'Click and drag to move the canvas.',
+			'Click while holding the control key to zoom out.',
+		].concat(hints);
+	}
 
-  hint.className = 'hint fade-out';
+	hint.className = 'hint fade-out';
 
-  setTimeout(function show() {
-    hint.innerHTML = hints[0];
-    content.appendChild(hint);
+	setTimeout(function show() {
+		hint.innerHTML = hints[0];
+		content.appendChild(hint);
 
-    hints = hints.sort(function() {
-      return 0.5 - Math.random();
-    });
+		hints = hints.sort(function () {
+			return 0.5 - Math.random();
+		});
 
-    setTimeout(function hide() {
-      content.removeChild(hint);
-    }, 60 * 1000);
+		setTimeout(function hide() {
+			content.removeChild(hint);
+		}, 60 * 1000);
 
-    setTimeout(show, 300 * 1000);
-  }, 0);
+		setTimeout(show, 300 * 1000);
+	}, 0);
 };
 
-socket.onmessage = function(event) {
-  var data = new Uint8Array(event.data);
-  var view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+socket.onmessage = function (event) {
+	var data = new Uint8Array(event.data);
+	var view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
-  if (data.byteLength == 8) {
-    data = new Float64Array(event.data);
-    view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+	if (data.byteLength == 8) {
+		data = new Float64Array(event.data);
+		view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
-    var hint = document.createElement('p');
-    hint.id = 'hint';
-    hint.className = 'hint';
-    content.appendChild(hint);
+		var hint = document.createElement('p');
+		hint.id = 'hint';
+		hint.className = 'hint';
+		content.appendChild(hint);
 
-    viewport.timeout = setTimeout(function tick(wait) {
-      var now = Date.now();
-      var time = wait - now;
+		viewport.timeout = setTimeout(function tick(wait) {
+			var now = Date.now();
+			var time = wait - now;
 
-      hint.innerHTML = 'Wait... (' + Math.ceil(time / 1000) + ')';
+			hint.innerHTML = 'Wait... (' + Math.ceil(time / 1000) + ')';
 
-      if (viewport.style.cursor == '') {
-        viewport.style.cursor = 'wait';
-      }
+			if (viewport.style.cursor == '') {
+				viewport.style.cursor = 'wait';
+			}
 
-      if (time > 0) {
-        return viewport.timeout = setTimeout(tick, 1000, wait);
-      }
+			if (time > 0) {
+				return viewport.timeout = setTimeout(tick, 1000, wait);
+			}
 
-      content.removeChild(hint);
-      viewport.timeout = null;
+			content.removeChild(hint);
+			viewport.timeout = null;
 
-      if (viewport.style.cursor == 'wait') {
-        viewport.style.cursor = '';
-      }
-    }, 0, view.getFloat64(0, true));
-  } else {
-    var canvas = viewport.canvas;
-    var context = canvas.getContext('2d');
+			if (viewport.style.cursor == 'wait') {
+				viewport.style.cursor = '';
+			}
+		}, 0, view.getFloat64(0, true));
+	} else {
+		var canvas = viewport.canvas;
+		var context = canvas.getContext('2d');
 
-    var x = view.getUint16(0);
-    var y = view.getUint16(2);
+		var x = view.getUint16(0);
+		var y = view.getUint16(2);
 
-    var width = view.getUint16(4);
-    var height = view.getUint16(6);
+		var width = view.getUint16(4);
+		var height = view.getUint16(6);
 
-    if ((width != 1 && width != canvas.width) || (height != 1 && height != canvas.height)) {
-      var bitmap = context.getImageData(0, 0, canvas.width, canvas.height);
+		if ((width != 1 && width != canvas.width) || (height != 1 && height != canvas.height)) {
+			var bitmap = context.getImageData(0, 0, canvas.width, canvas.height);
 
-      canvas.width = width;
-      canvas.height = height;
+			canvas.width = width;
+			canvas.height = height;
 
-      context.putImageData(bitmap, 0, 0);
-    }
+			context.putImageData(bitmap, 0, 0);
+		}
 
-    var bitmap = context.getImageData(x, y, width, height);
-    bitmap.data.set(data.slice(8));
+		var bitmap = context.getImageData(x, y, width, height);
+		bitmap.data.set(data.slice(8));
 
-    context.putImageData(bitmap, x, y);
+		context.putImageData(bitmap, x, y);
 
-    requestAnimationFrame(function() {
-      viewport.render();
-    });
-  }
+		requestAnimationFrame(function () {
+			viewport.render();
+		});
+	}
 };
 
-socket.onclose = function() {
-  var status = document.createElement('p');
-  status.className = 'hint';
+socket.onclose = function () {
+	var status = document.createElement('p');
+	status.className = 'hint';
 
-  if (socket.reconnect) {
-    status.innerHTML = [
-      'Connection lost, <a href="#" onclick="location.reload()">click</a> or wait to reconnect...',
-    ].join('\n');
+	if (socket.reconnect) {
+		status.innerHTML = [
+			'Connection lost, <a href="#" onclick="location.reload()">click</a> or wait to reconnect...',
+		].join('\n');
 
-    setTimeout(function() {
-      location.reload();
-    }, 60 * 1000);
-  } else {
-    status.innerHTML = [
-      'Unable to connect, <a href="#" onclick="location.reload()">click</a> to retry...',
-    ].join('\n');
-  }
+		setTimeout(function () {
+			location.reload();
+		}, 60 * 1000);
+	} else {
+		status.innerHTML = [
+			'Unable to connect, <a href="#" onclick="location.reload()">click</a> to retry...',
+		].join('\n');
+	}
 
-  content.appendChild(status);
+	content.appendChild(status);
 };

@@ -20,6 +20,16 @@ async function start() {
 	let canvas = new Canvas();
 	await canvas.load(fs.existsSync(IMG_PATH) ? IMG_PATH : null);
 
+	setInterval(function(){
+		let {
+			heapTotal,
+			heapUsed
+		} = process.memoryUsage();
+		console.log(`Memory total: ${heapTotal/10000000}MB. Memory used: ${heapUsed/10000000}MB.`);
+		console.log(`Canvas size: ${canvas.width}x${canvas.height}`);
+		console.log('-------------------------')
+	}, 10000)
+
 	var server = http.createServer();
 	server.on('request', function (request, response) {
 		var uri = url.parse(request.url);
@@ -60,6 +70,7 @@ async function start() {
 		if (id == null) {
 			id = connection.upgradeReq.socket.remoteAddress;
 		}
+		console.log(id)
 		
 		connection.id = id;
 		connection.session = (sessions[id] = sessions[id] || {
@@ -113,7 +124,11 @@ async function start() {
 					var factor = Math.sin((x * 0.5) + (y * 0.5));
 					var duration = Math.abs(factor) * 8192 * Math.min(100, connections.length / 100);
 					
-					connection.session.wait = 0//Date.now() + Math.max(1000, Math.floor(duration));
+					if(id === '::1'){
+						connection.session.wait = 0;
+					}else{
+						Date.now() + Math.max(1000, Math.floor(duration));
+					}
 					connection.send(Float64Array.of(connection.session.wait));
 				};
 			}
