@@ -55,8 +55,123 @@ const OPCODES = {
     COOLDOWN: 2
 }
 
+function compress(raw) {
+    let compressed = [];
+
+    let lastCol = null;
+    let differents = [];
+
+    let equalCount = 0;
+
+    for (let i = 0; i < raw.length; i++) {
+        let col = raw[i];
+        if (col == lastCol) {
+            ++equalCount
+            if (differents.length > 0) {
+                compressed.push(-differents.length);
+                compressed.push(-1);
+                compressed.push.apply(compressed, differents);
+                differents = [];
+            }
+            if (equalCount == 126) {
+                compressed.push(-(equalCount + 1));
+                compressed.push(col);
+                lastCol = null;
+                equalCount = 0;
+
+                continue
+            }
+        } else {
+            if (equalCount > 0) {
+                compressed.push(-(equalCount + 1));
+                compressed.push(lastCol);
+            }
+            equalCount = 0;
+            if (raw[i + 1] == col) {
+                lastCol = col;
+                continue
+            }
+            differents.push(col);
+        }
+        lastCol = col;
+    }
+    if (equalCount > 0) {
+        compressed.push(-(equalCount + 1));
+        compressed.push(lastCol);
+    } else
+    if (differents.length) {
+        compressed.push(-differents.length);
+        compressed.push(-1);
+        compressed = compressed.concat(differents)
+    }
+
+    return compressed
+}
+
+function decompress(comp) {
+    let raw = [];
+    let diffRemain = 0;
+
+    for (let i = 0; i < comp.length; i++) {
+        let char = comp[i];
+        if (diffRemain > 0) {
+            diffRemain--
+            raw.push(char);
+            continue
+        }
+        if (char >= 0) {
+            throw new Error('Decompression Error: unsigned char as flag');
+        } else {
+            let nextChar = comp[i + 1]
+            if (nextChar == -1) { // different colors chain
+                diffRemain = Math.abs(char)
+                i++
+                continue
+            } else {
+                i++
+                raw.push.apply(raw, new Array(Math.abs(char)).fill(nextChar))
+            }
+        }
+    }
+
+    return raw
+}
+
+// function generate() {
+//     let out = []
+//     for (let i = 0; i < 2000*2000; i++) {
+//         out.push(Math.random() * 3 | 0)
+//     }
+//     return out
+// }
+
+// for (let i = 0; i < 1000; i++) {
+//     let timer = Date.now();
+//     let generated = generate();
+//     console.log(Date.now() - timer, 'gen')
+//     timer = Date.now();
+//     let comp = compress(generated);
+//     console.log(Date.now() - timer, 'com')
+//     timer = Date.now();
+//     let decomp = decompress(comp);   
+//     console.log(Date.now() - timer, 'dec')
+//     console.log(i)
+
+//     try{
+//         decomp.forEach((val, idx) => {
+//             if (val != generated[idx]) throw new Error()
+//         })
+//     }catch(e){
+//         console.log(generated, 'generated')
+//         console.log(comp, 'comp')
+//         console.log(decomp, 'decomp')
+//     }
+// }
+
 module.exports = {
     colors,
     getColorId,
-    OPCODES
+    OPCODES,
+    compress,
+    decompress
 }

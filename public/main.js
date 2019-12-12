@@ -1,3 +1,32 @@
+function decompress(comp) {
+    let raw = [];
+    let diffRemain = 0;
+
+    for (let i = 0; i < comp.length; i++) {
+        let char = comp[i];
+        if (diffRemain > 0) {
+            diffRemain--
+            raw.push(char);
+            continue
+        }
+        if (char >= 0) {
+            throw new Error('Decompression Error: unsigned char as flag');
+        } else {
+            let nextChar = comp[i + 1]
+            if (nextChar == -1) { // different colors chain
+                diffRemain = Math.abs(char)
+                i++
+                continue
+            } else {
+                i++
+                raw.push.apply(raw, new Array(Math.abs(char)).fill(nextChar))
+            }
+        }
+    }
+
+    return raw
+}
+
 window.createSocket = function createSocket(url) {
 	return new WebSocket(url);
 };
@@ -53,6 +82,8 @@ var colors = [
 	[143, 151, 74],
 	[138, 111, 48]
 ];
+
+let rgbaColors = colors.map(col => [...col, 255])
 
 var palette = document.createElement('section');
 
@@ -382,11 +413,21 @@ socket.onmessage = function (event) {
 				var canvas = viewport.canvas;
 				var context = canvas.getContext('2d');
 
-				var x = dv.getUint16(1);
-				var y = dv.getUint16(3);
+				var x = dv.getUint16(2);
+				var y = dv.getUint16(4);
 
-				var width = dv.getUint16(5);
-				var height = dv.getUint16(7);
+				var width = dv.getUint16(6);
+				var height = dv.getUint16(8);
+
+				let compressed = dv.getUint8(1);
+				let bufferData;
+				if(compressed == 1){
+					bufferData = decompress(new Int8Array(dv.buffer.slice(10)))
+				}else{
+					bufferData = new Uint8Array(dv.buffer.slice(10));
+				}
+				window.a = bufferData
+				console.log(bufferData)
 
 				if ((width != 1 && width != canvas.width) || (height != 1 && height != canvas.height)) {
 					var bitmap = context.getImageData(0, 0, canvas.width, canvas.height);
@@ -398,18 +439,12 @@ socket.onmessage = function (event) {
 				}
 
 				var bitmap = context.getImageData(x, y, width, height);
-				let imageData = [];
-				if(/Chrome/i.test(navigator.userAgent)){
-					new Uint8Array(dv.buffer.slice(9)).forEach(colorId => {
-						imageData = imageData.concat([...colors[colorId], 255])
-					})
-				}else{
-					new Uint8Array(dv.buffer.slice(9)).forEach(colorId => {
-						imageData.push.apply(imageData, [...colors[colorId], 255])
-					})
-				}
 				
-				console.log(imageData)
+				let imageData = [];
+				bufferData.forEach(colorId => {
+					imageData.push.apply(imageData, rgbaColors[colorId])
+				})
+				
 				bitmap.data.set(imageData);
 
 				context.putImageData(bitmap, x, y);

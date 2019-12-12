@@ -13,7 +13,9 @@ const Canvas = require('./Canvas');
 const {
 	getColorId,
 	colors,
-	OPCODES
+	OPCODES,
+	compress,
+	decompress
 } = require('./utils');
 
 // function is just for awaits
@@ -81,10 +83,10 @@ async function start() {
 		if (connection.session.wait > Date.now()) {
 			try {
 				let dv = new DataView(1 + 8);
-						dv.setUint8(OPCODES.COOLDOWN);
-						dv.setFloat64(connection.session.wait);
-	
-						connection.send(dv);
+				dv.setUint8(OPCODES.COOLDOWN);
+				dv.setFloat64(connection.session.wait);
+
+				connection.send(dv);
 			} catch (error) {
 				console.error(error);
 			}
@@ -94,22 +96,22 @@ async function start() {
 		connection.on('message', function (data, flags) {
 			if (flags.binary) {
 				let dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
-				switch(dv.getUint8(0)){
-					case OPCODES.PIXEL:{
+				switch (dv.getUint8(0)) {
+					case OPCODES.PIXEL: {
 						if (connection.session.wait > Date.now()) return
 
 						let x = dv.getUint16(1);
 						let y = dv.getUint16(3);
-	
-						if (x > canvas.width || y > canvas.height || x < 0 || y < 0) {
+
+						if (x >= canvas.width || y >= canvas.height || x < 0 || y < 0) {
 							return;
 						}
-	
+
 						const colorId = dv.getUint8(5);
 						if (colorId < 0 || colorId >= colors.length) return;
-	
+
 						canvas.setPixel(x, y, colorId);
-	
+
 						connections.forEach(function (connection) {
 							try {
 								connection.send(data);
@@ -117,21 +119,20 @@ async function start() {
 								console.error(error);
 							}
 						});
-	
-	
+
 						var factor = Math.sin((x * 0.5) + (y * 0.5));
 						var duration = Math.abs(factor) * 8192 * Math.min(100, connections.length / 100);
-	
-						if (id === '::19') {
+
+						if (id === '::1') {
 							connection.session.wait = 0;
 						} else {
 							connection.session.wait = Date.now() + Math.max(1000, Math.floor(duration));
 						}
-	
+
 						dv = new DataView(new ArrayBuffer(1 + 8));
 						dv.setUint8(0, OPCODES.COOLDOWN);
 						dv.setFloat64(1, connection.session.wait);
-	
+
 						connection.send(dv.buffer);
 						break
 					}
@@ -143,17 +144,27 @@ async function start() {
 			connections.splice(connections.indexOf(connection), 1);
 		});
 
-		let pixelData = canvas.data;//canvas.toBuffer();
-		var data = new Uint8Array(9 + pixelData.length);
-		var view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-		
-		view.setUint8(0, OPCODES.BOARD);
-		view.setUint16(1, 0);
-		view.setUint16(3, 0);
-		view.setUint16(5, canvas.width);
-		view.setUint16(7, canvas.height);
+		let pixelData = canvas.data; //canvas.toBuffer();
+		let compressed = compress(pixelData);
+		const badCompression = (compressed.length > pixelData.length);
+		let data
+		if (badCompression) {
+			data = new Uint8Array(pixelData.length + 10);
+		} else {
+			data = new Int8Array(compressed.length + 10);
+		}
 
-		data.set(pixelData, 9);
+		let view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+
+		view.setUint8(0, OPCODES.BOARD);
+		view.setUint8(1, badCompression ? 0 : 1);
+
+		view.setUint16(2, 0);
+		view.setUint16(4, 0);
+		view.setUint16(6, canvas.width);
+		view.setUint16(8, canvas.height);
+
+		data.set(badCompression ? pixelData : compressed, 10);
 
 		try {
 			connection.send(data);
@@ -176,18 +187,28 @@ async function start() {
 			var count = 8;
 			canvas.expand(count);
 			let pixelData = canvas.data; //canvas.toBuffer();
+			let compressed = compress(pixelData);
+			console.log(pixelData.length, decompress(compressed).length)
+			fs.writeFileSync('test', [...pixelData, '\n', ...compressed].join(','))
+			const badCompression = (compressed.length > pixelData.length);
+			let data
+			if (badCompression) {
+				data = new Uint8Array(pixelData.length + 10);
+			} else {
+				data = new Int8Array(compressed.length + 10);
+			}
 
-			let data = new Uint8Array(pixelData.length + 9);
 			let view = new DataView(data.buffer, data.byteOffset, data.byteLength);
 
 			view.setUint8(0, OPCODES.BOARD);
+			view.setUint8(1, badCompression ? 0 : 1);
 
-			view.setUint16(1, 0);
-			view.setUint16(3, 0);
-			view.setUint16(5, canvas.width);
-			view.setUint16(7, canvas.height);
+			view.setUint16(2, 0);
+			view.setUint16(4, 0);
+			view.setUint16(6, canvas.width);
+			view.setUint16(8, canvas.height);
 
-			data.set(pixelData, 9);
+			data.set(badCompression ? pixelData : compressed, 10);
 
 
 			connections.forEach(function (connection) {
