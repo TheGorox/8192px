@@ -84,6 +84,7 @@ var colors = [
 ];
 
 let rgbaColors = colors.map(col => [...col, 255])
+let rgbaColors32 = colors.map(col => 0xff000000 | col[2] << 16 | col[1] << 8 | col[0])
 
 var palette = document.createElement('section');
 
@@ -421,13 +422,14 @@ socket.onmessage = function (event) {
 
 				let compressed = dv.getUint8(1);
 				let bufferData;
+				let timer = Date.now();
 				if(compressed == 1){
 					bufferData = decompress(new Int8Array(dv.buffer.slice(10)))
+					console.log('Got compressed data, decompression took: ' + (Date.now() - timer) + 'ms');
 				}else{
 					bufferData = new Uint8Array(dv.buffer.slice(10));
+					console.log('Got UNcompressed data');
 				}
-				window.a = bufferData
-				console.log(bufferData)
 
 				if ((width != 1 && width != canvas.width) || (height != 1 && height != canvas.height)) {
 					var bitmap = context.getImageData(0, 0, canvas.width, canvas.height);
@@ -440,12 +442,15 @@ socket.onmessage = function (event) {
 
 				var bitmap = context.getImageData(x, y, width, height);
 				
-				let imageData = [];
-				bufferData.forEach(colorId => {
-					imageData.push.apply(imageData, rgbaColors[colorId])
+				let intView = new Uint32Array(bitmap.data.buffer);
+				timer = Date.now();
+				bufferData.forEach((colorId, i) => {
+					intView[i] = rgbaColors32[colorId];
+					//imageData.push.apply(imageData, rgbaColors[colorId])
 				})
+				console.log('Conversion took: ' + (Date.now() - timer) + 'ms')
 				
-				bitmap.data.set(imageData);
+				//bitmap.data.set(imageData);
 
 				context.putImageData(bitmap, x, y);
 
@@ -496,12 +501,6 @@ socket.onmessage = function (event) {
 			}
 		}
 	}
-	var data = new Uint8Array(event.data);
-	var dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
-
-	if (data.byteLength == 8) {
-
-	} else {}
 };
 
 socket.onclose = function () {
