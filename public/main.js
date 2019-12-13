@@ -345,7 +345,7 @@ requestAnimationFrame(function () {
 	viewport.render();
 });
 
-document.getElementById('base').appendChild(viewport);
+document.getElementById('content').appendChild(viewport);
 
 var socket = window.createSocket(
 	location.protocol.replace('http', 'ws') + '//' + location.hostname + ':3939'
