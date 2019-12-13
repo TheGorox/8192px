@@ -1,0 +1,6 @@
+{
+    "cooldown": 0.1,
+    "port": 8192,
+    "expandRate": 60,
+    "expandSize": 8
+}

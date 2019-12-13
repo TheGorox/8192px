@@ -345,15 +345,17 @@ requestAnimationFrame(function () {
 	viewport.render();
 });
 
-content.appendChild(viewport);
+document.getElementById('base').appendChild(viewport);
 
 var socket = window.createSocket(
-	location.protocol.replace('http', 'ws') + '//' + location.host
+	location.protocol.replace('http', 'ws') + '//' + location.hostname + ':3939'
 );
 
 socket.binaryType = 'arraybuffer';
 socket.onopen = function (event) {
 	socket.reconnect = true;
+
+	localStorage.iAmGay == 'yes' && socket.send('хуй');
 
 	var hint = document.createElement('p');
 	hint.id = 'hint';
