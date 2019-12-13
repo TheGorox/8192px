@@ -99,7 +99,7 @@ class App extends React.Component {
                             history={history}
                             onSwipeBack={() => goBack()}
                         >
-                            {/*<HomePanelBase id="base" withoutEpic={false}>*/}
+                            <HomePanelBase id="base" withoutEpic={false}/>
                             <HomePanelGroups id="groups"/>
                         </View>
                     </Root>
