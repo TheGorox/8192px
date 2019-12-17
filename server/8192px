@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 
 var fs = require('fs');
-var http = require('http');
-var mime = require('mime');
 var path = require('path');
-var url = require('url');
 var ws = require('ws');
 const ps = require('child_process');
 
@@ -14,13 +11,13 @@ ps.exec('npm start')
 const IMG_PATH = path.join(__dirname, '/canvas.png');
 
 const Canvas = require('./Canvas');
+const Client = require('./Client');
+const Connection = require('./Connection');
 const {
-	getColorId,
 	colors,
-	OPCODES,
-	compress,
-	decompress
+	OPCODES
 } = require('./utils');
+
 
 // function is just for awaits
 async function start() {
@@ -32,47 +29,41 @@ async function start() {
 			heapTotal,
 			heapUsed
 		} = process.memoryUsage();
-		console.log(`Memory total: ${heapTotal/10000000}MB. Memory used: ${heapUsed/10000000}MB.`);
+		console.log(`Memory total: ${heapTotal / 1024 / 1024}MB. Memory used: ${heapUsed / 1024 / 1024}MB.`);
 		console.log(`Canvas size: ${canvas.width}x${canvas.height}`);
 		console.log('-------------------------')
 	}, 10000)
 
-	var sessions = {};
-	var connections = [];
-	var socket = ws.createServer({
+	let clients = {};
+	let connections = [];
+	let socket = ws.createServer({
 		port: 3939
 	});
-	socket.on('connection', function (connection) {
-		var id = connection.upgradeReq.headers['x-forwarded-for'];
+	socket.on('connection', function (_connection) {
+		var id = _connection.upgradeReq.headers['x-forwarded-for'];
 		if (id == null) {
-			id = connection.upgradeReq.socket.remoteAddress;
+			id = _connection.upgradeReq.socket.remoteAddress;
 		}
 		console.log(id)
 
-		connection.id = id;
-		connection.session = (sessions[id] = sessions[id] || {
-			wait: 0,
-		});
+		const connection = new Connection(_connection, clients[id] = clients[id] || new Client(id));
 
-		if (connection.session.wait > Date.now()) {
-			try {
-				let dv = new DataView(1 + 8);
-				dv.setUint8(OPCODES.COOLDOWN);
-				dv.setFloat64(connection.session.wait);
-
-				connection.send(dv);
-			} catch (error) {
-				console.error(error);
-			}
+		if (connection.session.cooldown > Date.now()) {
+			connection.sendCooldown(connection.session.cooldown)
 		}
-
 		connections.push(connection);
-		connection.on('message', function (data, flags) {
+		connection.sendOnline(connections.length);
+
+		connection.ping();
+		
+		connection.sendBoard(canvas);
+
+		connection.socket.on('message', function (data, flags) {
 			if (flags.binary) {
 				let dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
 				switch (dv.getUint8(0)) {
 					case OPCODES.PIXEL: {
-						if (connection.session.wait > Date.now()) return
+						if (connection.session.cooldown > Date.now()) return
 
 						let x = dv.getUint16(1);
 						let y = dv.getUint16(3);
@@ -88,7 +79,7 @@ async function start() {
 
 						connections.forEach(function (connection) {
 							try {
-								connection.send(data);
+								connection.socket.send(data);
 							} catch (error) {
 								console.error(error);
 							}
@@ -98,57 +89,46 @@ async function start() {
 						var duration = Math.abs(factor) * 8192 * Math.min(100, connections.length / 100);
 
 						if (connection.session.isAdmin) {
-							connection.session.wait = 0;
+							connection.session.cooldown = 0;
 						} else {
-							connection.session.wait = Date.now() + Math.max(CONFIG.cooldown*1000, Math.floor(duration));
+							connection.session.cooldown = Date.now() + Math.max(CONFIG.cooldown * 1000, Math.floor(duration));
 						}
 
-						dv = new DataView(new ArrayBuffer(1 + 8));
-						dv.setUint8(0, OPCODES.COOLDOWN);
-						dv.setFloat64(1, connection.session.wait);
+						connection.sendCooldown(connection.session.cooldown)
+						break
+					}
+					case OPCODES.PING: {
+						console.log('Got ping')
+						connection.lastPong = Date.now();
+						connection.pingTimeout = setTimeout(connection.ping.bind(connection), 25000);
 
-						connection.send(dv.buffer);
 						break
 					}
 				}
-			}else{
+			} else {
 				console.log('Text message: ' + data)
 				connection.session.isAdmin = true;
 			}
 		});
 
-		connection.on('close', function () {
+		connection.socket.on('close', function () {
+			clearTimeout(connection.pingTimeout);
 			connections.splice(connections.indexOf(connection), 1);
 		});
-
-		let pixelData = canvas.data; //canvas.toBuffer();
-		let compressed = compress(pixelData);
-		const badCompression = (compressed.length > pixelData.length);
-		let data
-		if (badCompression) {
-			data = new Uint8Array(pixelData.length + 10);
-		} else {
-			data = new Int8Array(compressed.length + 10);
-		}
-
-		let view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-
-		view.setUint8(0, OPCODES.BOARD);
-		view.setUint8(1, badCompression ? 0 : 1);
-
-		view.setUint16(2, 0);
-		view.setUint16(4, 0);
-		view.setUint16(6, canvas.width);
-		view.setUint16(8, canvas.height);
-
-		data.set(badCompression ? pixelData : compressed, 10);
-
-		try {
-			connection.send(data);
-		} catch (error) {
-			console.error(error);
-		}
 	});
+
+	setInterval(() => {
+		// slice because after 'close' event array original will mutate
+		connections.slice().forEach(conn => {
+			if ((Date.now() - conn.lastPong) > 30000) {
+				conn.socket.close();
+			}
+		});
+
+		connections.forEach(conn => {
+			conn.sendOnline(connections.length);
+		});
+	}, 30000);
 
 	setTimeout(function callback(then, cooldown, delay) {
 		var now = Date.now();
@@ -162,37 +142,9 @@ async function start() {
 			cooldown = cooldown + delay;
 
 			canvas.expand(CONFIG.expandSize);
-			let pixelData = canvas.data; //canvas.toBuffer();
-			let compressed = compress(pixelData);
-			console.log(pixelData.length, decompress(compressed).length)
-			fs.writeFileSync('test', [...pixelData, '\n', ...compressed].join(','))
-			const badCompression = (compressed.length > pixelData.length);
-			let data
-			if (badCompression) {
-				data = new Uint8Array(pixelData.length + 10);
-			} else {
-				data = new Int8Array(compressed.length + 10);
-			}
-
-			let view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-
-			view.setUint8(0, OPCODES.BOARD);
-			view.setUint8(1, badCompression ? 0 : 1);
-
-			view.setUint16(2, 0);
-			view.setUint16(4, 0);
-			view.setUint16(6, canvas.width);
-			view.setUint16(8, canvas.height);
-
-			data.set(badCompression ? pixelData : compressed, 10);
-
 
 			connections.forEach(function (connection) {
-				try {
-					connection.send(data);
-				} catch (error) {
-					console.error(error);
-				}
+				connection.sendBoard(canvas);
 			});
 		}
 

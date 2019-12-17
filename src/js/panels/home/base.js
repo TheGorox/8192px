@@ -40,7 +40,7 @@ class HomePanelBase extends React.Component {
 
         return (
             <Panel id={id}>
-                <PanelHeader>Ты пидор</PanelHeader>
+                <PanelHeader>Ты няшка</PanelHeader>
                 {this.props.children}
             </Panel>
         );

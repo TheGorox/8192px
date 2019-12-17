@@ -52,7 +52,9 @@ function getColorId(clr) {
 const OPCODES = {
     PIXEL: 0,
     BOARD: 1,
-    COOLDOWN: 2
+    COOLDOWN: 2,
+    PING: 3,
+    ONLINE: 4
 }
 
 function compress(raw) {

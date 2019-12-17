@@ -40,12 +40,15 @@ window.onresize = function (event) {
 	});
 };
 
-var content = document.querySelector('main');
+const content = document.getElementsByClassName('main')[0];
+const onlineEl = document.getElementById('online');
 
 const OPCODES = {
-	PIXEL: 0,
-	BOARD: 1,
-	COOLDOWN: 2
+    PIXEL: 0,
+    BOARD: 1,
+    COOLDOWN: 2,
+    PING: 3,
+    ONLINE: 4
 }
 
 var colors = [
@@ -345,7 +348,11 @@ requestAnimationFrame(function () {
 	viewport.render();
 });
 
-document.getElementById('content').appendChild(viewport);
+content.appendChild(viewport);
+
+// ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// ------------------------------------------------------------------
 
 var socket = window.createSocket(
 	location.protocol.replace('http', 'ws') + '//' + location.hostname + ':3939'
@@ -361,41 +368,21 @@ socket.onopen = function (event) {
 	hint.id = 'hint';
 
 	var hints = [
-		'The cooldown after placing a pixel can be up to 8192 seconds long.',
-		'Check out 8192px on <a href="https://reddit.com/8192px">Reddit</a>"',
-		'The canvas will expand every 8192 seconds.',
-		'Use your imagination, be creative and have fun.',
-		'Join the <a href="https://discord.gg/XdN2CHk">Discord</a> chat server',
-		'Try to work with what is already on the canvas.',
-		'The palette will colors change every now and then.',
-		'8192px is hosted with <a href="https://m.do.co/c/77e38b5a6b3e">DigitalOcean</a>, they are freaking awesome.',
-		'8192px is open source, check it out on <a href="https://github.com/8192px/8192px">GitHub</a>',
+		'Пьянство - детонатор хулиганства.',
+		'Когда-то давно, четыре народа жили в мире. Но всё изменилось когда народ огня развязал войну.',
+		'Только аватар, властелин всех четырех стихий мог исправить положение.',
+		'Но когда люди нуждались в нём больше всего, ты пидор.',
+		'У меня закончилась фантазия.',
+		'Нет, я не фек.',
+		'Да, я горох.',
+		'Если отправить по вебсокету "хуй", он будет считать тебя админом',
 	];
-
-	if (/phone|pad|tablet|droid/i.test(navigator.userAgent)) {
-		hints = [
-			'Double tap to place a pixel.',
-			'Pinch to zoom in and out.',
-		].concat(hints);
-	} else {
-		hints = [
-			'Double click to place a pixel.',
-			'Click a color swatch in the palette to switch colors.',
-			'Click while holding the shift key to zoom in.',
-			'Click and drag to move the canvas.',
-			'Click while holding the control key to zoom out.',
-		].concat(hints);
-	}
 
 	hint.className = 'hint fade-out';
 
 	setTimeout(function show() {
 		hint.innerHTML = hints[0];
 		content.appendChild(hint);
-
-		hints = hints.sort(function () {
-			return 0.5 - Math.random();
-		});
 
 		setTimeout(function hide() {
 			content.removeChild(hint);
@@ -411,6 +398,7 @@ socket.onmessage = function (event) {
 		// ... string handle
 	} else {
 		let dv = new DataView(message);
+		console.log('Opcode', dv.getUint8(0))
 		switch (dv.getUint8(0)) { // OPCODE
 			case OPCODES.BOARD: {
 				var canvas = viewport.canvas;
@@ -500,6 +488,19 @@ socket.onmessage = function (event) {
 						viewport.style.cursor = '';
 					}
 				}, 0, dv.getFloat64(1));
+				break
+			}
+			case OPCODES.ONLINE: {
+				console.log('Got online', dv.getUint16(1))
+				onlineEl.innerText = dv.getUint16(1) + ' Онлайн';
+
+				break
+			}
+			case OPCODES.PING: {
+				const dv = new DataView(new ArrayBuffer(1));
+				dv.setUint8(0, OPCODES.PING);
+
+				socket.send(dv.buffer);
 			}
 		}
 	}

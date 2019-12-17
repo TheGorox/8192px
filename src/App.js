@@ -18,6 +18,16 @@ import MorePanelExample from './js/panels/more/example';
 import HomeBotsListModal from './js/components/modals/HomeBotsListModal';
 import HomeBotInfoModal from './js/components/modals/HomeBotInfoModal';
 
+function da(){
+  document.querySelector('.palette').style.zIndex = "-1";
+  document.querySelector('.viewport').style.zIndex = "-1"
+}
+function piz(){
+  document.querySelector('.viewport').style.zIndex = "1"
+  document.querySelector('.palette').style.zIndex = "2"
+}
+
+
 class App extends React.Component {
     constructor(props) {
         super(props);
@@ -82,11 +92,11 @@ class App extends React.Component {
                 <Epic activeStory={activeStory} tabbar={
                     <Tabbar>
                         <TabbarItem
-                            onClick={() => setStory('home', 'base')}
+                            onClick={() => { setStory('home', 'base'); piz();}}
                             selected={activeStory === 'home'}
                         ><Icon28Newsfeed/></TabbarItem>
                         <TabbarItem
-                            onClick={() => setStory('more', 'callmodal')}
+                            onClick={() => { setStory('more', 'callmodal'); da();}}
                             selected={activeStory === 'more'}
                         ><Icon28More/></TabbarItem>
                     </Tabbar>
@@ -128,7 +138,6 @@ class App extends React.Component {
         );
     }
 }
-
 const mapStateToProps = (state) => {
     return {
         activeView: state.router.activeView,
